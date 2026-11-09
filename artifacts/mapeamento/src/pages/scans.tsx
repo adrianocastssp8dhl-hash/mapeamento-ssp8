@@ -107,7 +107,7 @@ export default function ScansPage() {
           ) : (
             <EmptyState icon={<ScanBarcode className="h-4 w-4" />} title="Nenhuma bipagem registrada ainda"
               action={<Button onClick={openNew}><Plus className="h-4 w-4 mr-2" />Registrar a primeira</Button>}>
-              A planilha importada trazia apenas os 10 colaboradores, sem nenhuma bipagem. A importação foi um retrato inicial — novos lançamentos acontecem aqui, não no Google Sheets.
+              A planilha foi importada com 10 colaboradores e sem bipagens. Os novos lançamentos criados aqui também são enviados à aba “BIPAGENS DO APP”.
             </EmptyState>
           )
         ) : (

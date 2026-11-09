@@ -41,6 +41,7 @@ Portuguese warehouse product-scanning workspace imported from the Google Sheets 
 - View, search and filter bipagens; create, inspect, edit and delete scans.
 - Manage collaborators; deletion is blocked when associated scans exist.
 - Live overview, collaborator totals, unified product counts.
+- Product IDs are normally 11 numeric digits; camera scans preserve leading zeros, while manual entry remains available.
 - Responsive pt-BR interface with real database persistence.
 
 ## User preferences

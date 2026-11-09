@@ -1,9 +1,9 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useQueryClient } from "@tanstack/react-query";
-import { Loader2, Pencil, Trash2, Clock, User, Hash, Boxes } from "lucide-react";
+import { Camera, Loader2, Pencil, Trash2, Clock, User, Hash, Boxes } from "lucide-react";
 import {
   useCreateScan, useUpdateScan, useDeleteScan, useGetScan, useListCollaborators,
   getGetScanQueryKey, getListCollaboratorsQueryKey,
@@ -18,6 +18,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { errMsg, fmtLong, invalidateAll, isoToLocalInput, localInputToIso, nowLocalInput, num, relative, POLL_MS } from "@/lib/mapa";
+
+const BarcodeScannerDialog = lazy(async () => {
+  const module = await import("./barcode-scanner-dialog");
+  return { default: module.BarcodeScannerDialog };
+});
 
 const schema = z.object({
   collaboratorId: z.string().min(1, "Escolha quem bipou"),
@@ -35,7 +40,11 @@ export function ScanFormDialog({ open, onOpenChange, scan }: { open: boolean; on
   const update = useUpdateScan();
   const pending = create.isPending || update.isPending;
   const [serverErr, setServerErr] = useState<string | null>(null);
+  const [scannerOpen, setScannerOpen] = useState(false);
   const form = useForm<Values>({ resolver: zodResolver(schema), defaultValues: { collaboratorId: "", productId: "", quantity: 1, scannedAt: "" } });
+  const handleScannedCode = useCallback((code: string) => {
+    form.setValue("productId", code, { shouldDirty: true, shouldValidate: true });
+  }, [form]);
 
   useEffect(() => {
     if (!open) return;
@@ -66,7 +75,12 @@ export function ScanFormDialog({ open, onOpenChange, scan }: { open: boolean; on
 
   const list = collabs.data ?? [];
   return (
-    <Dialog open={open} onOpenChange={(o) => !pending && onOpenChange(o)}>
+    <>
+    <Dialog open={open} onOpenChange={(o) => {
+      if (pending) return;
+      if (!o) setScannerOpen(false);
+      onOpenChange(o);
+    }}>
       <DialogContent className="sm:max-w-[480px]">
         <DialogHeader>
           <DialogTitle className="font-display text-2xl">{scan ? `Editar bipagem #${scan.id}` : "Nova bipagem"}</DialogTitle>
@@ -88,8 +102,13 @@ export function ScanFormDialog({ open, onOpenChange, scan }: { open: boolean; on
             <FormField control={form.control} name="productId" render={({ field }) => (
               <FormItem>
                 <FormLabel>Código do produto</FormLabel>
-                <FormControl><Input {...field} autoFocus inputMode="text" autoComplete="off" spellCheck={false} placeholder="ex.: 0078912345" className="font-mono text-base h-11 tracking-wide" data-testid="input-scan-product" /></FormControl>
-                <FormDescription>Leitores de código de barras funcionam neste campo.</FormDescription>
+                <div className="space-y-2">
+                  <FormControl><Input {...field} inputMode="text" autoComplete="off" spellCheck={false} placeholder="ex.: 48446539703" className="font-mono text-base h-11 tracking-wide" data-testid="input-scan-product" /></FormControl>
+                  <Button type="button" variant="outline" className="w-full" disabled={pending} onClick={() => setScannerOpen(true)} data-testid="button-open-camera-scanner">
+                    <Camera className="h-4 w-4" />Ler com a câmera
+                  </Button>
+                </div>
+                <FormDescription>Exemplo: ID numérico com 11 dígitos. Também pode digitar ou usar um leitor físico.</FormDescription>
                 <FormMessage />
               </FormItem>
             )} />
@@ -124,6 +143,16 @@ export function ScanFormDialog({ open, onOpenChange, scan }: { open: boolean; on
         </Form>
       </DialogContent>
     </Dialog>
+    {scannerOpen && (
+      <Suspense fallback={
+        <div className="fixed inset-0 z-[60] grid place-items-center bg-black/70 text-sm text-white" role="status" data-testid="status-camera-loading">
+          <span><Loader2 className="mx-auto mb-2 h-6 w-6 animate-spin" />Preparando leitor…</span>
+        </div>
+      }>
+        <BarcodeScannerDialog open={scannerOpen} onOpenChange={setScannerOpen} onDetected={handleScannedCode} />
+      </Suspense>
+    )}
+    </>
   );
 }
 
