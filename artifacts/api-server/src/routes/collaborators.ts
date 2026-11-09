@@ -5,6 +5,7 @@ import {
   UpdateCollaboratorParams, UpdateCollaboratorBody, UpdateCollaboratorResponse,
   DeleteCollaboratorParams,
 } from "@workspace/api-zod";
+import { syncCollaboratorRename } from "../lib/google-sheets-sync";
 
 const router: IRouter = Router();
 const totals = `SELECT c.id, c.name, count(s.id)::int AS "scanCount",
@@ -34,14 +35,42 @@ router.put("/collaborators/:id", async (req, res): Promise<void> => {
     res.status(400).json({ error: "Nome ou colaborador inválido." });
     return;
   }
-  const { rowCount } = await pool.query(
-    "UPDATE collaborators SET name=$1 WHERE id=$2", [body.data.name.trim(), params.data.id]);
-  if (!rowCount) {
-    res.status(404).json({ error: "Colaborador não encontrado." });
-    return;
+  const newName = body.data.name.trim();
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const { rows: [collaborator] } = await client.query(
+      "SELECT name FROM collaborators WHERE id=$1 FOR UPDATE",
+      [params.data.id],
+    );
+    if (!collaborator) {
+      await client.query("ROLLBACK");
+      res.status(404).json({ error: "Colaborador não encontrado." });
+      return;
+    }
+    const { rows: [scanCount] } = await client.query(
+      "SELECT count(*)::int AS total FROM scans WHERE collaborator_id=$1",
+      [params.data.id],
+    );
+    await client.query(
+      "UPDATE collaborators SET name=$1 WHERE id=$2",
+      [newName, params.data.id],
+    );
+    if (collaborator.name !== newName && scanCount.total > 0) {
+      await syncCollaboratorRename(params.data.id, newName);
+    }
+    const { rows: [row] } = await client.query(
+      `${totals} WHERE c.id=$1 GROUP BY c.id`,
+      [params.data.id],
+    );
+    await client.query("COMMIT");
+    res.json(UpdateCollaboratorResponse.parse(row));
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
   }
-  const { rows: [row] } = await pool.query(`${totals} WHERE c.id=$1 GROUP BY c.id`, [params.data.id]);
-  res.json(UpdateCollaboratorResponse.parse(row));
 });
 
 router.delete("/collaborators/:id", async (req, res): Promise<void> => {

@@ -3,6 +3,7 @@ import cors from "cors";
 import pinoHttp from "pino-http";
 import router from "./routes";
 import { logger } from "./lib/logger";
+import { GoogleSheetsSyncError } from "./lib/google-sheets-sync";
 
 const app: Express = express();
 
@@ -47,6 +48,11 @@ const errorHandler: ErrorRequestHandler = (err, req, res, _next) => {
   }
   if (err?.type === "entity.parse.failed") {
     res.status(400).json({ error: "Dados JSON inválidos." });
+    return;
+  }
+  if (err instanceof GoogleSheetsSyncError) {
+    req.log.warn({ err }, "Google Sheets synchronization failed");
+    res.status(503).json({ error: err.message });
     return;
   }
   req.log.error({ err }, "Request failed");

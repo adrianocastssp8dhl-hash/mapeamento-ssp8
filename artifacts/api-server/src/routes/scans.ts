@@ -5,6 +5,11 @@ import {
   GetScanParams, GetScanResponse, UpdateScanParams, UpdateScanBody, UpdateScanResponse,
   DeleteScanParams,
 } from "@workspace/api-zod";
+import {
+  syncCreateScan,
+  syncDeleteScan,
+  syncUpdateScan,
+} from "../lib/google-sheets-sync";
 
 const router: IRouter = Router();
 const projection = `SELECT s.id, s.collaborator_id AS "collaboratorId", c.name AS "collaboratorName",
@@ -69,10 +74,25 @@ router.post("/scans", async (req, res): Promise<void> => {
     return;
   }
   const body = parsed.data;
-  const { rows: [row] } = await pool.query(`INSERT INTO scans (collaborator_id,product_id,quantity,scanned_at)
-    VALUES ($1,$2,$3,$4) RETURNING id`, [body.collaboratorId, body.productId.trim(), body.quantity, body.scannedAt]);
-  const { rows: [scan] } = await pool.query(`${projection} WHERE s.id=$1`, [row.id]);
-  res.status(201).json(CreateScanResponse.parse(scan));
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query("SELECT pg_advisory_xact_lock(19374022)");
+    const { rows: [row] } = await client.query(
+      `INSERT INTO scans (collaborator_id,product_id,quantity,scanned_at)
+       VALUES ($1,$2,$3,$4) RETURNING id`,
+      [body.collaboratorId, body.productId.trim(), body.quantity, body.scannedAt],
+    );
+    const { rows: [scan] } = await client.query(`${projection} WHERE s.id=$1`, [row.id]);
+    await syncCreateScan(scan);
+    await client.query("COMMIT");
+    res.status(201).json(CreateScanResponse.parse(scan));
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
 });
 
 router.get("/scans/:id", async (req, res): Promise<void> => {
@@ -97,14 +117,28 @@ router.put("/scans/:id", async (req, res): Promise<void> => {
     return;
   }
   const body = parsed.data;
-  const { rowCount } = await pool.query(`UPDATE scans SET collaborator_id=$1,product_id=$2,quantity=$3,scanned_at=$4 WHERE id=$5`,
-    [body.collaboratorId, body.productId.trim(), body.quantity, body.scannedAt, params.data.id]);
-  if (!rowCount) {
-    res.status(404).json({ error: "Bipagem não encontrada." });
-    return;
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const { rowCount } = await client.query(
+      `UPDATE scans SET collaborator_id=$1,product_id=$2,quantity=$3,scanned_at=$4 WHERE id=$5`,
+      [body.collaboratorId, body.productId.trim(), body.quantity, body.scannedAt, params.data.id],
+    );
+    if (!rowCount) {
+      await client.query("ROLLBACK");
+      res.status(404).json({ error: "Bipagem não encontrada." });
+      return;
+    }
+    const { rows: [row] } = await client.query(`${projection} WHERE s.id=$1`, [params.data.id]);
+    await syncUpdateScan(row);
+    await client.query("COMMIT");
+    res.json(UpdateScanResponse.parse(row));
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
   }
-  const { rows: [row] } = await pool.query(`${projection} WHERE s.id=$1`, [params.data.id]);
-  res.json(UpdateScanResponse.parse(row));
 });
 
 router.delete("/scans/:id", async (req, res): Promise<void> => {
@@ -113,12 +147,28 @@ router.delete("/scans/:id", async (req, res): Promise<void> => {
     res.status(400).json({ error: "Registro inválido." });
     return;
   }
-  const { rowCount } = await pool.query("DELETE FROM scans WHERE id=$1", [params.data.id]);
-  if (!rowCount) {
-    res.status(404).json({ error: "Bipagem não encontrada." });
-    return;
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const { rows: [scan] } = await client.query(
+      "SELECT id FROM scans WHERE id=$1 FOR UPDATE",
+      [params.data.id],
+    );
+    if (!scan) {
+      await client.query("ROLLBACK");
+      res.status(404).json({ error: "Bipagem não encontrada." });
+      return;
+    }
+    await syncDeleteScan(scan.id);
+    await client.query("DELETE FROM scans WHERE id=$1", [params.data.id]);
+    await client.query("COMMIT");
+    res.status(204).end();
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
   }
-  res.status(204).end();
 });
 
 export default router;

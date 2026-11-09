@@ -30,9 +30,10 @@ Portuguese warehouse product-scanning workspace imported from the Google Sheets 
 
 ## Architecture decisions
 
-- Sheets is an initial read-only import, not a two-way synchronization. App edits only affect PostgreSQL.
-- The source workbook contains ten collaborator names and no product/scan records. Import those ten collaborators without fictional scans. Blank IDs with a quantity of zero are spreadsheet summary placeholders, not records.
-- Consolidated and unified spreadsheet tabs are derived views, not independent copies of scan data. Compute them from scans.
+- The source workbook supplied ten collaborator names and no product/scan records. Import those ten collaborators without fictional scans. Blank IDs with a quantity of zero are spreadsheet summary placeholders, not records.
+- App bipagens are mirrored one-way to the `BIPAGENS DO APP` tab with the full app record, including quantity. Create, edit, delete, and collaborator renames update the corresponding app-managed rows; a failed Sheets write cancels the database change.
+- Keep the workbook's original tabs intact: `CONSOLIDADO` and `LISTA UNIFICADA` are formula-derived views from the collaborator tabs, and the original collaborator tabs do not contain the app's full record shape.
+- Product IDs are text so leading zeros remain intact. Calendar filters and daily totals use America/Sao_Paulo.
 - Product IDs are text so leading zeros remain intact. Calendar filters and daily totals use America/Sao_Paulo.
 
 ## Product

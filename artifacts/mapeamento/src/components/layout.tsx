@@ -34,8 +34,8 @@ export function Layout({ children }: { children: ReactNode }) {
           ))}
         </nav>
         <div className="mt-auto rounded-lg border border-sidebar-border p-3 text-[12px] text-sidebar-foreground/65 leading-relaxed">
-          <div className="flex items-center gap-1.5 text-sidebar-foreground font-medium mb-1"><Info className="h-3.5 w-3.5" />Fonte importada</div>
-          A planilha original foi importada uma única vez. Daqui em diante, este registro é a fonte oficial — não há sincronização com o Google Sheets.
+          <div className="flex items-center gap-1.5 text-sidebar-foreground font-medium mb-1"><Info className="h-3.5 w-3.5" />Sincronização ativa</div>
+          Bipagens do app são enviadas à aba “BIPAGENS DO APP”. Alterações no Sheets não voltam ao app.
         </div>
       </aside>
 

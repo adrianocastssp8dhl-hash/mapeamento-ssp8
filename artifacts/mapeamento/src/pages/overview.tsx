@@ -107,7 +107,7 @@ export default function OverviewPage() {
           )}
           <div className="mt-4 rounded-xl border border-dashed p-4 text-xs text-muted-foreground leading-relaxed flex gap-3">
             <Info className="h-4 w-4 shrink-0 text-sidebar-primary mt-0.5" />
-            <p>Os dados vieram de uma importação única da planilha original (10 colaboradores, nenhuma bipagem). Não existe sincronização com o Google Sheets: o que é lançado aqui fica só aqui.</p>
+            <p>As bipagens criadas, editadas ou excluídas aqui também atualizam a aba “BIPAGENS DO APP”. Alterações feitas diretamente na planilha não são importadas para o app.</p>
           </div>
         </section>
       </div>
