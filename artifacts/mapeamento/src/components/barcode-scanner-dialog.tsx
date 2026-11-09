@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { BrowserMultiFormatOneDReader } from "@zxing/browser";
 import { Camera, Loader2 } from "lucide-react";
 import {
@@ -36,14 +36,14 @@ export function BarcodeScannerDialog({
   onOpenChange: (open: boolean) => void;
   onDetected: (code: string) => void;
 }) {
-  const videoRef = useRef<HTMLVideoElement>(null);
+  const [video, setVideo] = useState<HTMLVideoElement | null>(null);
   const [attempt, setAttempt] = useState(0);
   const [starting, setStarting] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open || !video) return;
 
     let cancelled = false;
     let accepted = false;
@@ -63,13 +63,6 @@ export function BarcodeScannerDialog({
       setCameraError("Este navegador não oferece acesso à câmera. Tente no Safari ou Chrome atualizado.");
       return;
     }
-    const video = videoRef.current;
-    if (!video) {
-      setStarting(false);
-      setCameraError("Não foi possível iniciar a visualização da câmera.");
-      return;
-    }
-
     const reader = new BrowserMultiFormatOneDReader(undefined, {
       delayBetweenScanSuccess: 350,
       delayBetweenScanAttempts: 100,
@@ -116,7 +109,7 @@ export function BarcodeScannerDialog({
       cancelled = true;
       stopScanner?.();
     };
-  }, [open, attempt, onDetected, onOpenChange]);
+  }, [open, video, attempt, onDetected, onOpenChange]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -130,7 +123,7 @@ export function BarcodeScannerDialog({
 
         <div className="relative aspect-[4/3] max-h-[52vh] overflow-hidden rounded-lg bg-black">
           <video
-            ref={videoRef}
+            ref={setVideo}
             autoPlay
             muted
             playsInline
