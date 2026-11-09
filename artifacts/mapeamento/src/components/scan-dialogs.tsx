@@ -9,6 +9,7 @@ import {
   getGetScanQueryKey, getListCollaboratorsQueryKey,
 } from "@workspace/api-client-react";
 import type { Scan } from "@workspace/api-client-react";
+import { ErrorBoundary, type ErrorFallbackProps } from "@/components/error-boundary";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
@@ -20,9 +21,33 @@ import { useToast } from "@/hooks/use-toast";
 import { errMsg, fmtLong, invalidateAll, isoToLocalInput, localInputToIso, nowLocalInput, num, relative, POLL_MS } from "@/lib/mapa";
 
 const BarcodeScannerDialog = lazy(async () => {
-  const module = await import("./barcode-scanner-dialog");
+  const load = () => import("./barcode-scanner-dialog");
+  let module;
+  try {
+    module = await load();
+  } catch {
+    await new Promise((resolve) => setTimeout(resolve, 800));
+    module = await load();
+  }
   return { default: module.BarcodeScannerDialog };
 });
+
+function ScannerLoadFailure({ resetError }: ErrorFallbackProps) {
+  return (
+    <div className="fixed inset-0 z-[60] grid place-items-center bg-black/70 p-6" role="alert" data-testid="text-camera-load-error">
+      <div className="w-full max-w-sm rounded-lg bg-background p-5 text-center shadow-lg">
+        <p className="font-display text-lg font-semibold">Não foi possível carregar o leitor</p>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Isso costuma acontecer quando o app foi atualizado ou a conexão falhou. Recarregue a página e tente de novo. Você pode digitar o código manualmente.
+        </p>
+        <div className="mt-4 flex flex-col gap-2">
+          <Button type="button" onClick={() => window.location.reload()}>Recarregar página</Button>
+          <Button type="button" variant="outline" onClick={resetError} data-testid="button-camera-load-close">Fechar</Button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 const schema = z.object({
   collaboratorId: z.string().min(1, "Escolha quem bipou"),
@@ -144,6 +169,9 @@ export function ScanFormDialog({ open, onOpenChange, scan }: { open: boolean; on
       </DialogContent>
     </Dialog>
     {scannerOpen && (
+      <ErrorBoundary FallbackComponent={({ error, resetError }) => (
+        <ScannerLoadFailure error={error} resetError={() => { resetError(); setScannerOpen(false); }} />
+      )}>
       <Suspense fallback={
         <div className="fixed inset-0 z-[60] grid place-items-center bg-black/70 text-sm text-white" role="status" data-testid="status-camera-loading">
           <span><Loader2 className="mx-auto mb-2 h-6 w-6 animate-spin" />Preparando leitor…</span>
@@ -151,6 +179,7 @@ export function ScanFormDialog({ open, onOpenChange, scan }: { open: boolean; on
       }>
         <BarcodeScannerDialog open={scannerOpen} onOpenChange={setScannerOpen} onDetected={handleScannedCode} />
       </Suspense>
+      </ErrorBoundary>
     )}
     </>
   );
