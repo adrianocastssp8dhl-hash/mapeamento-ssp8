@@ -11,6 +11,128 @@ tags:
   - name: health
     description: Health operations
 paths:
+  /collaborators:
+    get:
+      operationId: listCollaborators
+      responses:
+        "200":
+          description: Collaborators with current totals
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Collaborator" }
+    post:
+      operationId: createCollaborator
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CollaboratorInput" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Collaborator" }
+  /collaborators/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: integer, minimum: 1 } }
+    put:
+      operationId: updateCollaborator
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CollaboratorInput" }
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Collaborator" }
+    delete:
+      operationId: deleteCollaborator
+      responses:
+        "204": { description: "Deleted, only allowed when no scans reference collaborator" }
+        "409": { description: Collaborator has scans and cannot be deleted }
+  /scans:
+    get:
+      operationId: listScans
+      parameters:
+        - { name: q, in: query, schema: { type: string, maxLength: 200 } }
+        - { name: collaboratorId, in: query, schema: { type: integer, minimum: 1 } }
+        - { name: dateFrom, in: query, schema: { type: string, format: date } }
+        - { name: dateTo, in: query, schema: { type: string, format: date } }
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+      responses:
+        "200":
+          description: Filtered paginated scans
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ScanList" }
+    post:
+      operationId: createScan
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ScanInput" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Scan" }
+  /scans/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: integer, minimum: 1 } }
+    get:
+      operationId: getScan
+      responses:
+        "200":
+          description: Scan details
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Scan" }
+    put:
+      operationId: updateScan
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ScanInput" }
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Scan" }
+    delete:
+      operationId: deleteScan
+      responses:
+        "204": { description: Deleted }
+  /summary:
+    get:
+      operationId: getSummary
+      responses:
+        "200":
+          description: Live overview in America/Sao_Paulo timezone
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Summary" }
+  /products:
+    get:
+      operationId: listProducts
+      responses:
+        "200":
+          description: Unified product list computed from scans
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/ProductTotal" }
   /healthz:
     get:
       operationId: healthCheck
@@ -26,6 +148,66 @@ paths:
                 $ref: "#/components/schemas/HealthStatus"
 components:
   schemas:
+    CollaboratorInput:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 120 }
+    Collaborator:
+      type: object
+      required: [id, name, scanCount, totalQuantity]
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        scanCount: { type: integer }
+        totalQuantity: { type: integer }
+    ScanInput:
+      type: object
+      required: [collaboratorId, productId, quantity, scannedAt]
+      properties:
+        collaboratorId: { type: integer, minimum: 1 }
+        productId: { type: string, minLength: 1, maxLength: 200 }
+        quantity: { type: integer, minimum: 1, maximum: 1000000 }
+        scannedAt: { type: string, format: date-time }
+    Scan:
+      type: object
+      required: [id, collaboratorId, collaboratorName, productId, quantity, scannedAt]
+      properties:
+        id: { type: integer }
+        collaboratorId: { type: integer }
+        collaboratorName: { type: string }
+        productId: { type: string }
+        quantity: { type: integer }
+        scannedAt: { type: string, format: date-time }
+    ScanList:
+      type: object
+      required: [items, total, page, limit]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/Scan" }
+        total: { type: integer }
+        page: { type: integer }
+        limit: { type: integer }
+    Summary:
+      type: object
+      required: [totalScans, totalQuantity, uniqueProducts, collaborators, todayScans, todayQuantity]
+      properties:
+        totalScans: { type: integer }
+        totalQuantity: { type: integer }
+        uniqueProducts: { type: integer }
+        collaborators: { type: integer }
+        todayScans: { type: integer }
+        todayQuantity: { type: integer }
+    ProductTotal:
+      type: object
+      required: [productId, scanCount, totalQuantity, collaboratorCount, lastScannedAt]
+      properties:
+        productId: { type: string }
+        scanCount: { type: integer }
+        totalQuantity: { type: integer }
+        collaboratorCount: { type: integer }
+        lastScannedAt: { type: string, format: date-time }
     HealthStatus:
       type: object
       properties:

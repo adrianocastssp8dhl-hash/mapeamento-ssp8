@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "Mapeamento Geral"
+description = "Controle de bipagens de produtos por colaborador, baseado na planilha Mapeamento Geral. Gerencie registros, quantidades e horários com busca, filtros e resumos em tempo real."
+version = "1.0.0"
+id = "artifacts/mapeamento"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 21553
+
+[services.development]
+run = "pnpm --filter @workspace/mapeamento run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/mapeamento", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/mapeamento/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "21553"
+BASE_PATH = "/"

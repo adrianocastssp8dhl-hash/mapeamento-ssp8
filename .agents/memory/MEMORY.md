@@ -1,0 +1,1 @@
+- [API codegen compatibility](codegen-compatibility.md) — Orval version auto-detection can be wrong across workspace packages; explicitly pin the runtime library major.
